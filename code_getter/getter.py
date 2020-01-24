@@ -321,19 +321,9 @@ class RMarkDownCodeGetter(MarkDownCodeGetter):
 
 
 class HaskellCodeGetter(CodeGetter):
-    # The RCodeGetter redefines substr(self) so maybe I should do that instead
-    # of redefining get_text
-
-
-    # def __init__(self):
-    #     super().__init__()
-    #     self.block_start_pattern = self.settings.get("block_start_pattern", "# %%")
-    #     self.block_end_pattern = self.settings.get("block_end_pattern", "# %%")
-
-
     def get_text(self):
+        # Wraps code so that we can send multi-line blocks.
         cmd = super().get_text()
-
         return ":{\n" + cmd + "\n:}"
 
     def expand_line(self, s):
@@ -341,24 +331,22 @@ class HaskellCodeGetter(CodeGetter):
         # if view.score_selector(s.begin(), "string"):
         #     return s
 
-        s = self.backward_expand(s, pattern=r"^ +([#$])")
+        s = self.backward_expand(s, pattern=r"(^ +(--)?([#$])?)")
 
         s_block = self.block_expand(s)
         if s_block != s:
             return s_block
 
-        return self.forward_expand(s, pattern=r"^ +([#$])")
+        return self.forward_expand(s, pattern=r"(^ +(--)?([#$])?)")
 
 
-    def backward_expand(self, s, pattern=r"^ +([#$])"):
-        # backward_expand previous lines ending with operators
-        # you don't need to keep track of where you are because you forward expand after this!
+    def backward_expand(self, s, pattern=r"(^ +(--)?([#$])?)"):
 
         view = self.view
         row = view.rowcol(s.begin())[0]
         while row > 0:
-            line = view.line(view.text_point(row, 0)) # operate on THIS line
-            if re.search(pattern, view.substr(line)): # If we find the pattern on this line...
+            line = view.line(view.text_point(row, 0))
+            if re.search(pattern, view.substr(line)):
                 row = row - 1
                 continue
             s = line
@@ -367,7 +355,7 @@ class HaskellCodeGetter(CodeGetter):
         return s
 
 
-    def forward_expand(self, s, pattern=r"^ +([#$])", paren=True):
+    def forward_expand(self, s, pattern=r"(^ +(--)?([#$])?)", paren=True):
         level = 0
         row = self.view.rowcol(s.begin())[0]
         lastrow = self.view.rowcol(self.view.size())[0]
