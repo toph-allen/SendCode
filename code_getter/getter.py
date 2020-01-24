@@ -27,6 +27,8 @@ class CodeGetter:
             return PythonCodeGetter(view)
         elif syntax == "julia":
             return JuliaCodeGetter(view)
+        elif syntax == "haskell":
+            return HaskellCodeGetter(view)
         else:
             return CodeGetter(view)
 
@@ -316,3 +318,10 @@ class MarkDownCodeGetter(CodeGetter):
 class RMarkDownCodeGetter(MarkDownCodeGetter):
 
     pass
+
+
+class HaskellCodeGetter(CodeGetter):
+    def get_text(self):
+        cmd = super().get_text()
+
+        return ":{" + cmd + ":}"
