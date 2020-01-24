@@ -324,4 +324,4 @@ class HaskellCodeGetter(CodeGetter):
     def get_text(self):
         cmd = super().get_text()
 
-        return ":{" + cmd + ":}"
+        return ":{ " + cmd + " :}"
