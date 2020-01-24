@@ -321,7 +321,91 @@ class RMarkDownCodeGetter(MarkDownCodeGetter):
 
 
 class HaskellCodeGetter(CodeGetter):
+    # The RCodeGetter redefines substr(self) so maybe I should do that instead
+    # of redefining get_text
+
+
+    # def __init__(self):
+    #     super().__init__()
+    #     self.block_start_pattern = self.settings.get("block_start_pattern", "# %%")
+    #     self.block_end_pattern = self.settings.get("block_end_pattern", "# %%")
+
+
     def get_text(self):
         cmd = super().get_text()
 
         return ":{\n" + cmd + "\n:}"
+
+    def expand_line(self, s):
+        view = self.view
+        # if view.score_selector(s.begin(), "string"):
+        #     return s
+
+        s = self.backward_expand(s, pattern=r"^ +([#$])")
+
+        s_block = self.block_expand(s)
+        if s_block != s:
+            return s_block
+
+        return self.forward_expand(s, pattern=r"^ +([#$])")
+
+
+    def backward_expand(self, s, pattern=r"^ +([#$])"):
+        # backward_expand previous lines ending with operators
+        # you don't need to keep track of where you are because you forward expand after this!
+
+        view = self.view
+        row = view.rowcol(s.begin())[0]
+        while row > 0:
+            line = view.line(view.text_point(row, 0)) # operate on THIS line
+            if re.search(pattern, view.substr(line)): # If we find the pattern on this line...
+                row = row - 1
+                continue
+            s = line
+            break
+
+        return s
+
+
+    def forward_expand(self, s, pattern=r"^ +([#$])", paren=True):
+        level = 0
+        row = self.view.rowcol(s.begin())[0]
+        lastrow = self.view.rowcol(self.view.size())[0]
+        while row <= lastrow:
+            line = self.view.line(self.view.text_point(row, 0))
+            pt = line.begin()
+            while paren:
+                # there is a bug in the R syntax of early ST release (see #125)
+                if sublime.version() >= '4000':
+                    res = self.find_inline(r"[{}\[\]()]", pt, scope="punctuation")
+                else:
+                    res = self.find_inline(r"[{}\[\]()]", pt)
+
+                if res.begin() == -1:
+                    break
+                if self.view.substr(res) in ["{", "[", "("]:
+                    level += 1
+                elif self.view.substr(res) in ["}", "]", ")"]:
+                    level -= 1
+                pt = res.end()
+
+            if level > 0:
+                row = row + 1
+            else:
+                if not pattern:
+                    s = sublime.Region(s.begin(), line.end())
+                    break
+                else:
+                    nextrow = row + 1
+                    nextline = self.view.line(self.view.text_point(nextrow, 0))
+                    nextpt = nextline.begin()
+                    res = self.find_inline(pattern, nextpt)
+                    if res.begin() != -1:
+                        row = nextrow
+                    else:
+                        s = sublime.Region(s.begin(), line.end())
+                        break
+        if row == lastrow:
+            s = sublime.Region(s.begin(), line.end())
+
+        return s
